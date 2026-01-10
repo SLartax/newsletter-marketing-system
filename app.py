@@ -166,11 +166,9 @@ def import_contacts_from_csv(filepath):
             
             # Genera token unsubscribe
             token = secrets.token_hex(32)
-            
-            # Inserisci
-            cursor.execute('''INSERT INTO subscribers (email, unsubscribe_token, status, subscribed_at)
-                           VALUES (?, ?, "subscribed", ?)''',
-                        (email, token, datetime.now().isoformat()))
+            cursor.execute('''INSERT INTO campaigns (name, subject, from_name, from_email, status, created_at)
+            VALUES (?, ?, ?, ?, "draft", ?)''',
+            (name, subject, from_name, from_email, datetime.now().isoformat()))
             imported += 1
     
     conn.commit()
@@ -234,7 +232,7 @@ def edit_campaign(campaign_id):
         subject = request.form.get('subject')
         from_name = request.form.get('from_name')
         from_email = request.form.get('from_email')
-        content = request.form.get('content')
+       
         
         conn.execute('''UPDATE campaigns SET name=?, subject=?, from_name=?, from_email=?, content=?
                      WHERE id=?''',
