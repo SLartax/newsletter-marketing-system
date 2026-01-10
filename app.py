@@ -222,8 +222,7 @@ def new_campaign():
         flash('Campagna creata con successo!', 'success')
         return redirect(url_for('campaigns'))
     
-    return render_template('new_campaign.html')
-
+    return render_template('create_campaign.html')
 @app.route('/campaigns/<int:campaign_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_campaign(campaign_id):
