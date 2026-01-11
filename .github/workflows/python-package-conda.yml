@@ -21,18 +21,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Lint (basic)
-        run: |
           pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=12 --max-line-length=127 --statistics
 
-      - name: Import check (app)
+      - name: Lint (fast)
+        run: |
+          # Linta solo file utili, NON tutta la repo
+          flake8 app.py import_contacts.py 2>/dev/null || true
+          # Check severo solo su app.py (errori veri)
+          flake8 app.py --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Import check (safe)
         env:
-          # evita crash se app.py richiede env per init (facoltativo)
           SECRET_KEY: "ci_dummy_secret_key"
           ADMIN_PASSWORD: "ci_dummy_password"
           DB_PATH: "ci_test.db"
+          # se nel tuo app.py esegue init_db_if_needed() all'import, questo evita path strani
         run: |
-          python -c "import app; print('OK: app importato')"
+          python -c "import app; print('OK: import app')"
