@@ -400,34 +400,63 @@ def send_campaign_emails(campaign_id, recipients, subject, body_template, from_e
 @app.route("/campaigns/new", methods=["GET", "POST"])
 @login_required
 def new_campaign():
-    """Crea nuova campagna"""
+    """Crea campagna e invia email da CSV"""
     if request.method == "POST":
-        name = (request.form.get("name") or "").strip()
         subject = (request.form.get("subject") or "").strip()
+        body = (request.form.get("body") or "").strip()
         from_name = (request.form.get("from_name") or "").strip()
-        from_email = (request.form.get("from_email") or "").strip()
-        content = (request.form.get("content") or "").strip()
-
-        if not name or not subject or not from_email:
-            flash("Compila almeno: nome campagna, oggetto, email mittente.", "error")
+        from_email = (request.form.get("from_email") or SMTP_USER).strip()
+        
+        if not subject or not body:
+            flash("Compila almeno oggetto e corpo email.", "error")
             return redirect(request.url)
-
-        conn = get_db()
-        conn.execute(
-            """
-            INSERT INTO campaigns (name, subject, from_name, from_email, content, status, created_at)
-            VALUES (?, ?, ?, ?, ?, "draft", ?)
-            """,
-            (name, subject, from_name, from_email, content, datetime.utcnow().isoformat()),
-        )
-        conn.commit()
-        conn.close()
-
-        flash("Campagna creata con successo!", "success")
-        return redirect(url_for("campaigns"))
-
+        
+        if "csv_file" not in request.files:
+            flash("Carica un file CSV con destinatari.", "error")
+            return redirect(request.url)
+        
+        csv_file = request.files["csv_file"]
+        if not csv_file or csv_file.filename == "":
+            flash("Nessun file CSV selezionato.", "error")
+            return redirect(request.url)
+        
+        if not allowed_file(csv_file.filename):
+            flash("Formato non supportato. Usa CSV.", "error")
+            return redirect(request.url)
+        
+        filename = secure_filename(csv_file.filename)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        csv_file.save(filepath)
+        
+        try:
+            recipients = process_csv_flexible(filepath)
+            if not recipients:
+                flash("Nessun destinatario valido nel CSV.", "error")
+                return redirect(request.url)
+            
+            conn = get_db()
+            cursor = conn.execute(
+                "INSERT INTO campaigns (name, subject, from_name, from_email, content, status, created_at) VALUES (?, ?, ?, ?, ?, 'sending', ?)",
+                (subject, subject, from_name, from_email, body, datetime.utcnow().isoformat())
+            )
+            campaign_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            
+            thread = threading.Thread(
+                target=send_campaign_emails,
+                args=(campaign_id, recipients, subject, body, from_email, from_name)
+            )
+            thread.daemon = True
+            thread.start()
+            
+            flash(f"Campagna creata! Invio di {len(recipients)} email in corso...", "success")
+            return redirect(url_for("campaigns"))
+        except Exception as e:
+            flash(f"Errore: {str(e)}", "error")
+            return redirect(request.url)
+    
     return render_template("create_campaign.html")
-
 
 @app.route("/campaigns/<int:campaign_id>/edit", methods=["GET", "POST"])
 @login_required
