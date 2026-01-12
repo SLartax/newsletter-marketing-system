@@ -14,6 +14,10 @@ import secrets
 from datetime import datetime
 from functools import wraps
 import csv
+import smtplib
+import threading
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # =========================
 # CONFIG
@@ -39,6 +43,13 @@ ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 # Opzione 1: password in chiaro da env (Render) → hashata al boot
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme123")
 ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
+
+# SMTP Configuration for email sending
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "True").lower() == "true"
 
 # =========================
 # APP
@@ -319,6 +330,72 @@ def campaigns():
 
     return render_template("campaigns.html", campaigns=camps)
 
+
+# ========== HELPER FUNCTIONS FOR CAMPAIGNS ==========
+
+def process_csv_flexible(filepath):
+    """Processa CSV con rilevamento automatico colonne. Supporta vari formati."""
+    recipients = []
+    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+        sample = f.read(2048)
+        f.seek(0)
+        delimiter = ','
+        try:
+            delimiter = csv.Sniffer().sniff(sample).delimiter
+        except:
+            if '\t' in sample: delimiter = '\t'
+            elif ';' in sample: delimiter = ';'
+        reader = csv.DictReader(f, delimiter=delimiter)
+        if not reader.fieldnames:
+            raise ValueError("CSV vuoto o senza header")
+        email_col = name_col = surname_col = None
+        for field in reader.fieldnames:
+            low = field.lower().strip()
+            if not email_col and ('email' in low or 'mail' in low): email_col = field
+            if not name_col and (low in {'name','nome','first name','first_name','firstname'}): name_col = field
+            if not surname_col and (low in {'surname','cognome','last name','last_name','lastname'}): surname_col = field
+        if not email_col:
+            raise ValueError(f"Colonna email non trovata. Colonne: {', '.join(reader.fieldnames)}")
+        for row in reader:
+            email = (row.get(email_col) or '').strip().lower()
+            if not email: continue
+            recipients.append({
+                'email': email,
+                'nome': (row.get(name_col) or '').strip() if name_col else '',
+                'cognome': (row.get(surname_col) or '').strip() if surname_col else ''
+            })
+    return recipients
+
+def send_email_smtp(to_email, subject, body_html, from_email, from_name):
+    """Invia singola email via SMTP"""
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"{from_name} <{from_email}>" if from_name else from_email
+        msg['To'] = to_email
+        msg.attach(MIMEText(body_html, 'html', 'utf-8'))
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        if SMTP_USE_TLS: server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.sendmail(from_email, [to_email], msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Errore invio a {to_email}: {e}")
+        return False
+
+def send_campaign_emails(campaign_id, recipients, subject, body_template, from_email, from_name):
+    """Invia email in background"""
+    sent = failed = 0
+    for recipient in recipients:
+        body = body_template.replace('{{nome}}', recipient['nome']).replace('{{cognome}}', recipient['cognome'])
+        if send_email_smtp(recipient['email'], subject, body, from_email, from_name): sent += 1
+        else: failed += 1
+    conn = get_db()
+    conn.execute("UPDATE campaigns SET status=?, sent_count=? WHERE id=?", ('sent', sent, campaign_id))
+    conn.commit()
+    conn.close()
+    print(f"Campagna {campaign_id}: {sent} inviate, {failed} fallite")
 
 @app.route("/campaigns/new", methods=["GET", "POST"])
 @login_required
