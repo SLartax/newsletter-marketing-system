@@ -41,7 +41,9 @@ if not SECRET_KEY:
 # Credenziali admin da env (consigliato)
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 # Opzione 1: password in chiaro da env (Render) → hashata al boot
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme123")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "None)  # MUST be set in environment variables
+                                if not ADMIN_PASSWORD:
+    raise RuntimeError("ADMIN_PASSWORD must be set in environment variables for security")
 ADMIN_PASSWORD_HASH = generate_password_hash(ADMIN_PASSWORD)
 
 # SMTP Configuration for email sending
