@@ -40,8 +40,7 @@
     <div class="container">
         <h1>Crea Nuova Campagna Email</h1>
         <div class="form-box">
-            <form method="POST" enctype="multipart/form-data">
-                <div class="form-group">
+                <form action="/campaigns/new" method="POST" enctype="multipart/form-data">                <div class="form-group">
                     <label for="csv_file">📄 Carica CSV Contatti</label>
                     <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
                     <p class="help-text">Carica un file CSV con le colonne: email, nome, cognome</p>
