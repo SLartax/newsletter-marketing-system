@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuova Campagna - Newsletter System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 40px; }
+        h1 { color: #333; margin-bottom: 30px; font-size: 28px; }
+        .form-group { margin-bottom: 25px; }
+        label { display: block; color: #555; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+        input[type="text"], input[type="file"], textarea { width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: all 0.3s; }
+        input[type="text"]:focus, textarea:focus { border-color: #667eea; outline: none; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        textarea { min-height: 150px; resize: vertical; font-family: inherit; }
+        .btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 35px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+        .back-link { display: inline-block; color: #667eea; text-decoration: none; margin-bottom: 20px; font-weight: 600; }
+        .back-link:hover { text-decoration: underline; }
+        .info-text { color: #777; font-size: 13px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/campaigns" class="back-link">← Torna alle campagne</a>
+        <h1>📧 Nuova Campagna Email</h1>
+        
+        <form action="/campaigns/send" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="csv_file">File CSV Destinatari *</label>
+                <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+                <p class="info-text">Carica un file CSV con le colonne: email, nome (opzionale)</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="subject">Oggetto Email *</label>
+                <input type="text" id="subject" name="subject" placeholder="Inserisci l'oggetto dell'email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="body">Corpo del Messaggio *</label>
+                <textarea id="body" name="body" placeholder="Scrivi qui il contenuto dell'email..." required></textarea>
+                <p class="info-text">Puoi usare {{nome}} per personalizzare con il nome del destinatario</p>
+            </div>
+            
+            <button type="submit" class="btn">Invia Campagna</button>
+        </form>
+    </div>
+</body>
+</html>
