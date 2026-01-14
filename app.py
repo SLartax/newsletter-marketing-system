@@ -346,5 +346,13 @@ def unsubscribe():
         return "Token non valido", 404
 
 
+
+# Initialize database on startup
+try:
+    from init_db import init_database
+    init_database()
+except Exception as e:
+    print(f"Database initialization: {e}")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
