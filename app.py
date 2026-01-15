@@ -290,7 +290,7 @@ def new_campaign():
                     send_email(email, subject, personalized_body)
                     sent_count += 1
                 except Exception as e:
-                    print(f"Errore invio a {email}: {e}")
+                    app.logger.error(f"Errore invio a {email}: {e}")
                     error_count += 1
 
             conn.close()
