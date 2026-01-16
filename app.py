@@ -159,9 +159,11 @@ def import_contacts_from_csv(filepath):
 
 def send_email(to_email, subject, html_body, text_body=""):
     """Invia una singola email tramite SMTP."""
-    if not SMTP_USERNAME or not SMTP_PASSWORD:
-        raise ValueError("Configurazione SMTP mancante")
+        app.logger.info(f"🔧 SMTP Config: server={SMTP_SERVER}, port={SMTP_PORT}, user={SMTP_USERNAME}, from={SMTP_FROM_EMAIL}")
 
+
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+        raise ValueError(f"Configurazione SMTP mancante: USER={SMTP_USERNAME}, PASS={'***' if SMTP_PASSWORD else 'EMPTY'}")
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
@@ -274,6 +276,13 @@ def new_campaign():
             conn = get_db()
             cur = conn.cursor()
             recipients = cur.execute(
+                            app.logger.info(f"📊 CSV Import: {imported} importati, {duplicates} duplicati, {skipped} saltati")
+                            flash(f"CSV Import: {imported} contatti importati, {duplicates} duplicati, {skipped} saltati", "info")
+
+                            if imported == 0:
+                                flash(f"⚠️ NESSUN CONTATTO IMPORTATO! Verifica il formato del CSV.", "error")
+                                app.logger.error(f"Zero contacts imported from {filepath}")
+                
                 "SELECT email, name FROM subscribers WHERE status='subscribed'"
             ).fetchall()
 
@@ -290,8 +299,9 @@ def new_campaign():
                     send_email(email, subject, personalized_body)
                     sent_count += 1
                 except Exception as e:
-                    app.logger.error(f"Errore invio a {email}: {e}")
-                    error_count += 1
+                error_msg = f"Errore invio a {email}: {type(e).__name__}: {str(e)}"
+                                app.logger.error(error_msg)
+                                flash(error_msg, "error")error_count += 1
 
             conn.close()
             os.remove(filepath)
@@ -303,8 +313,10 @@ def new_campaign():
             return redirect(url_for("campaigns"))
 
         except Exception as e:
-            flash(f"Errore durante l'invio della campagna: {str(e)}", "error")
-            if os.path.exists(filepath):
+            error_msg = f"Errore durante l'invio della campagna: {type(e).__name__}: {str(e)}"
+                        app.logger.error(error_msg)
+                        app.logger.error(f"Traceback completo:", exc_info=True)
+                        flash(error_msg, "error")if os.path.exists(filepath):
                 os.remove(filepath)
             return redirect(url_for("new_campaign"))
 
