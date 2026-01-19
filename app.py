@@ -159,7 +159,7 @@ def import_contacts_from_csv(filepath):
 
 def send_email(to_email, subject, html_body, text_body=""):
     """Invia una singola email tramite SMTP."""
-        app.logger.info(f"🔧 SMTP Config: server={SMTP_SERVER}, port={SMTP_PORT}, user={SMTP_USERNAME}, from={SMTP_FROM_EMAIL}")
+    app.logger.info(f"🔧 SMTP Config: server={SMTP_SERVER}, port={SMTP_PORT}, user={SMTP_USERNAME}, from={SMTP_FROM_EMAIL}")
 
 
     if not SMTP_USERNAME or not SMTP_PASSWORD:
