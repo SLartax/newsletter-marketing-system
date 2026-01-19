@@ -278,7 +278,7 @@ def new_campaign():
             recipients = cur.execute(
             "SELECT email, name FROM subscribers WHERE status='subscribed'"
         ).fetchall()
-            except Exception as e:
+        except Exception as e:
         flash(f"Errore durante l'import: {str(e)}", "error")
         return redirect(url_for("new_campaign"))
         
