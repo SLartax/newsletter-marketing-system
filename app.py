@@ -276,15 +276,16 @@ def new_campaign():
             conn = get_db()
             cur = conn.cursor()
             recipients = cur.execute(
-                            app.logger.info(f"📊 CSV Import: {imported} importati, {duplicates} duplicati, {skipped} saltati")
+            "SELECT email, name FROM subscribers WHERE status='subscribed'"
+        ).fetchall()
+        app.logger.info(f"📊 CSV Import: {imported} importati, {duplicates} duplicati, {skipped} saltati")
+
                             flash(f"CSV Import: {imported} contatti importati, {duplicates} duplicati, {skipped} saltati", "info")
 
                             if imported == 0:
                                 flash(f"⚠️ NESSUN CONTATTO IMPORTATO! Verifica il formato del CSV.", "error")
                                 app.logger.error(f"Zero contacts imported from {filepath}")
                 
-                "SELECT email, name FROM subscribers WHERE status='subscribed'"
-            ).fetchall()
 
             sent_count = 0
             error_count = 0
