@@ -279,8 +279,8 @@ def new_campaign():
             "SELECT email, name FROM subscribers WHERE status='subscribed'"
         ).fetchall()
         except Exception as e:
-        flash(f"Errore durante l'import: {str(e)}", "error")
-        return redirect(url_for("new_campaign"))
+                flash(f"Errore durante l'import: {str(e)}", "error")
+                return redirect(url_for("new_campaign"))
         
         app.logger.info(f"📊 CSV Import: {imported} importati, {duplicates} duplicati, {skipped} saltati")
 
