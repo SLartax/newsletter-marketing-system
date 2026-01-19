@@ -36,7 +36,6 @@ DEFAULT_DB_PATH = os.path.join(BASE_DIR, "newsletter.db")
 DB_PATH = os.environ.get("DB_PATH", DEFAULT_DB_PATH)
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 ALLOWED_EXTENSIONS = {".csv", ".txt"}
-
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Credenziali admin (da variabili d'ambiente)
@@ -70,6 +69,7 @@ def login_required(f):
             flash("Devi effettuare il login.", "error")
             return redirect(url_for("login"))
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -138,6 +138,7 @@ def import_contacts_from_csv(filepath):
 
             token = secrets.token_hex(32)
             now_iso = utc_now_iso()
+
             try:
                 cur.execute(
                     """INSERT INTO subscribers
@@ -150,6 +151,7 @@ def import_contacts_from_csv(filepath):
                     'INSERT INTO subscribers (email, status) VALUES (?, "subscribed")',
                     (email,),
                 )
+
             imported += 1
 
     conn.commit()
@@ -160,10 +162,10 @@ def import_contacts_from_csv(filepath):
 def send_email(to_email, subject, html_body, text_body=""):
     """Invia una singola email tramite SMTP."""
     app.logger.info(f"🔧 SMTP Config: server={SMTP_SERVER}, port={SMTP_PORT}, user={SMTP_USERNAME}, from={SMTP_FROM_EMAIL}")
-
-
+    
     if not SMTP_USERNAME or not SMTP_PASSWORD:
         raise ValueError(f"Configurazione SMTP mancante: USER={SMTP_USERNAME}, PASS={'***' if SMTP_PASSWORD else 'EMPTY'}")
+    
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
@@ -192,7 +194,6 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "")
         password = request.form.get("password", "")
-
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session["logged_in"] = True
             session["username"] = username
@@ -200,7 +201,6 @@ def login():
             return redirect(url_for("dashboard"))
         else:
             flash("Credenziali non valide.", "error")
-
     return render_template("login.html")
 
 
@@ -239,9 +239,11 @@ def dashboard():
 def campaigns():
     conn = get_db()
     cur = conn.cursor()
+
     campaigns_list = cur.execute(
         "SELECT * FROM campaigns ORDER BY created_at DESC"
     ).fetchall()
+
     conn.close()
     return render_template("campaigns.html", campaigns=campaigns_list)
 
@@ -272,58 +274,57 @@ def new_campaign():
 
         try:
             imported, duplicates, skipped = import_contacts_from_csv(filepath)
-
+            
             conn = get_db()
             cur = conn.cursor()
             recipients = cur.execute(
-            "SELECT email, name FROM subscribers WHERE status='subscribed'"
-        ).fetchall()
+                "SELECT email, name FROM subscribers WHERE status='subscribed'"
+            ).fetchall()
         except Exception as e:
-                flash(f"Errore durante l'import: {str(e)}", "error")
-                return redirect(url_for("new_campaign"))
+            flash(f"Errore durante l'import: {str(e)}", "error")
+            return redirect(url_for("new_campaign"))
         
         app.logger.info(f"📊 CSV Import: {imported} importati, {duplicates} duplicati, {skipped} saltati")
+        flash(f"CSV Import: {imported} contatti importati, {duplicates} duplicati, {skipped} saltati", "info")
+        
+        if imported == 0:
+            flash(f"⚠️ NESSUN CONTATTO IMPORTATO! Verifica il formato del CSV.", "error")
+            app.logger.error(f"Zero contacts imported from {filepath}")
+        
+        sent_count = 0
+        error_count = 0
 
-                            flash(f"CSV Import: {imported} contatti importati, {duplicates} duplicati, {skipped} saltati", "info")
+        for recipient in recipients:
+            email = recipient["email"]
+            name = recipient["name"] or "Cliente"
+            personalized_body = body.replace("{nome}", name).replace("{email}", email)
 
-                            if imported == 0:
-                                flash(f"⚠️ NESSUN CONTATTO IMPORTATO! Verifica il formato del CSV.", "error")
-                                app.logger.error(f"Zero contacts imported from {filepath}")
-                
-
-            sent_count = 0
-            error_count = 0
-
-            for recipient in recipients:
-                email = recipient["email"]
-                name = recipient["name"] or "Cliente"
-
-                personalized_body = body.replace("{nome}", name).replace("{email}", email)
-
-                try:
-                    send_email(email, subject, personalized_body)
-                    sent_count += 1
-                except Exception as e:
+            try:
+                send_email(email, subject, personalized_body)
+                sent_count += 1
+            except Exception as e:
                 error_msg = f"Errore invio a {email}: {type(e).__name__}: {str(e)}"
-                                app.logger.error(error_msg)
-                                flash(error_msg, "error")error_count += 1
+                app.logger.error(error_msg)
+                flash(error_msg, "error")
+                error_count += 1
 
-            conn.close()
+        conn.close()
+        os.remove(filepath)
+
+        flash(
+            f"Campagna inviata! Email inviate: {sent_count}, Errori: {error_count}",
+            "success",
+        )
+        return redirect(url_for("campaigns"))
+        
+    except Exception as e:
+        error_msg = f"Errore durante l'invio della campagna: {type(e).__name__}: {str(e)}"
+        app.logger.error(error_msg)
+        app.logger.error(f"Traceback completo:", exc_info=True)
+        flash(error_msg, "error")
+        if os.path.exists(filepath):
             os.remove(filepath)
-
-            flash(
-                f"Campagna inviata! Email inviate: {sent_count}, Errori: {error_count}",
-                "success",
-            )
-            return redirect(url_for("campaigns"))
-
-        except Exception as e:
-            error_msg = f"Errore durante l'invio della campagna: {type(e).__name__}: {str(e)}"
-                        app.logger.error(error_msg)
-                        app.logger.error(f"Traceback completo:", exc_info=True)
-                        flash(error_msg, "error")if os.path.exists(filepath):
-                os.remove(filepath)
-            return redirect(url_for("new_campaign"))
+        return redirect(url_for("new_campaign"))
 
     return render_template("new_campaign.html")
 
@@ -333,9 +334,11 @@ def new_campaign():
 def subscribers():
     conn = get_db()
     cur = conn.cursor()
+
     subscribers_list = cur.execute(
         "SELECT * FROM subscribers ORDER BY subscribed_at DESC"
     ).fetchall()
+
     conn.close()
     return render_template("subscribers.html", subscribers=subscribers_list)
 
@@ -361,7 +364,6 @@ def unsubscribe():
     else:
         conn.close()
         return "Token non valido", 404
-
 
 
 # Initialize database on startup
