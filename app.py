@@ -317,14 +317,6 @@ def new_campaign():
         )
         return redirect(url_for("campaigns"))
         
-    except Exception as e:
-        error_msg = f"Errore durante l'invio della campagna: {type(e).__name__}: {str(e)}"
-        app.logger.error(error_msg)
-        app.logger.error(f"Traceback completo:", exc_info=True)
-        flash(error_msg, "error")
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        return redirect(url_for("new_campaign"))
 
     return render_template("new_campaign.html")
 
