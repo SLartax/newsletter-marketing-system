@@ -255,7 +255,7 @@ def new_campaign():
         subject = request.form.get("subject", "").strip()
         body = request.form.get("body", "").strip()
         csv_file = request.files.get("csv_file")
-                test_email = request.form.get("test_email", "").strip()
+            test_email = request.form.get("test_email", "").strip()
 
         if not subject or not body:
             flash("Oggetto e corpo email sono obbligatori.", "error")
