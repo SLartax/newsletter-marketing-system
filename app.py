@@ -255,13 +255,28 @@ def new_campaign():
         subject = request.form.get("subject", "").strip()
         body = request.form.get("body", "").strip()
         csv_file = request.files.get("csv_file")
+                test_email = request.form.get("test_email", "").strip()
 
         if not subject or not body:
             flash("Oggetto e corpo email sono obbligatori.", "error")
             return redirect(url_for("new_campaign"))
-
+            
+        # Se è fornito un test_email, invia solo a quello
+        if test_email:
+            try:
+                personalized_body = body.replace("{nome}", "Test").replace("{email}", test_email)
+                send_email(test_email, subject, personalized_body)
+                flash(f"✅ Email di test inviata con successo a {test_email}!", "success")
+                return redirect(url_for("campaigns"))
+            except Exception as e:
+                error_msg = f"Errore invio email di test: {type(e).__name__}: {str(e)}"
+                app.logger.error(error_msg)
+                flash(error_msg, "error")
+                return redirect(url_for("new_campaign"))
+        
+        # Altrimenti procedi con il CSV per l'invio massivo
         if not csv_file or csv_file.filename == "":
-            flash("Devi caricare un file CSV con i destinatari.", "error")
+            flash("Devi caricare un file CSV oppure inserire un'email di test.", "error")
             return redirect(url_for("new_campaign"))
 
         if not allowed_file(csv_file.filename):
