@@ -85,17 +85,19 @@ def detect_columns(fieldnames):
     name_col = None
     for field in fieldnames:
         low = field.lower().strip()
+def detect_columns(fieldnames):
+    email_col = None
+    first_name_col = None
+    last_name_col = None
+    for field in fieldnames:
+        low = field.lower().strip()
         if email_col is None and ("email" in low or "mail" in low):
             email_col = field
-        if name_col is None and low in {"name", "nome", "full_name", "fullname"}:
-            name_col = field
-    return email_col, name_col
-
-def import_contacts_from_csv(filepath):
-    conn = get_db()
-    cur = conn.cursor()
-    imported = 0
-    duplicates = 0
+        if first_name_col is None and ("first" in low and "name" in low or low == "nome"):
+            first_name_col = field
+        if last_name_col is None and ("last" in low and "name" in low or low == "cognome"):
+            last_name_col = field
+    return email_col, first_name_col, last_name_col    duplicates = 0
     skipped = 0
     with open(filepath, "r", encoding="utf-8", errors="replace") as f:
         sample = f.read(2048)
@@ -108,12 +110,11 @@ def import_contacts_from_csv(filepath):
         if not email_col:
             raise ValueError("Colonna email non trovata.")
         for row in reader:
-            email = (row.get(email_col) or "").strip().lower()
-            if not email:
+        email_col, first_name_col, last_name_col = detect_columns(reader.fieldnames)            if not email:
                 skipped += 1
                 continue
-            name = (row.get(name_col) or "").strip() if name_col else ""
-            existing = cur.execute(
+            first_name = (row.get(first_name_col) or "").strip() if first_name_col else ""
+            last_name = (row.get(last_name_col) or "").strip() if last_name_col else ""            existing = cur.execute(
                 "SELECT id FROM subscribers WHERE email = ?", (email,)
             ).fetchone()
             if existing:
@@ -123,18 +124,16 @@ def import_contacts_from_csv(filepath):
             now_iso = utc_now_iso()
             try:
                 cur.execute(
-                    """INSERT INTO subscribers
-                    (email, name, status, unsubscribe_token, subscribed_at)
-                    VALUES (?, ?, 'subscribed', ?, ?)""",
-                    (email, name, token, now_iso),
-                )
-            except sqlite3.OperationalError:
+            try:
                 cur.execute(
-                    'INSERT INTO subscribers (email, status) VALUES (?, "subscribed")',
-                    (email,),
-                )
-            imported += 1
-    conn.commit()
+                    """INSERT INTO subscribers
+                       (email, first_name, last_name, status, unsubscribe_token, subscribed_at)
+                       VALUES (?, ?, ?, 'subscribed', ?, ?)""",
+                    (email, first_name, last_name, token, now_iso),
+                imported += 1
+            except sqlite3.IntegrityError as e:
+                app.logger.error(f"Errore inserimento subscriber {email}: {e}")
+                skipped += 1    conn.commit()
     conn.close()
     return imported, duplicates, skipped
 
@@ -258,8 +257,7 @@ def new_campaign():
                 ).fetchall()
             except Exception as e:
                 flash(f"Errore durante l'import: {str(e)}", "error")
-                return redirect(url_for("new_campaign"))
-            
+                "SELECT email, first_name, last_name FROM subscribers WHERE status='subscribed'"            
             app.logger.info(f"📊 CSV Import: {imported} importati, {duplicates} duplicati, {skipped} saltati")
             flash(f"CSV Import: {imported} contatti importati, {duplicates} duplicati, {skipped} saltati", "info")
             
@@ -271,9 +269,10 @@ def new_campaign():
             error_count = 0
             for recipient in recipients:
                 email = recipient["email"]
-                name = recipient["name"] or "Cliente"
-                personalized_body = body.replace("{nome}", name).replace("{email}", email)
-                try:
+                first_name = recipient["first_name"] or ""
+                last_name = recipient["last_name"] or ""
+                full_name = f"{first_name} {last_name}".strip() or "Cliente"
+                personalized_body = body.replace("{nome}", full_name).replace("{email}", email)                try:
                     send_email(email, subject, personalized_body)
                     sent_count += 1
                 except Exception as e:
