@@ -25,6 +25,18 @@
     <div class="container">
         <a href="/campaigns" class="back-link">← Torna alle campagne</a>
         <h1>📧 Nuova Campagna Email</h1>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages" style="margin: 20px 0;">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }}" style="padding: 15px; margin-bottom: 10px; border-radius: 8px; background: {% if category == 'error' %}#fee; border: 1px solid #fcc; color: #c33{% elif category == 'success' %}#efe; border: 1px solid #cfc; color: #3c3{% else %}#eef; border: 1px solid #ccf; color: #33c{% endif %};">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
         
         <form action="/campaigns/new" method="POST" enctype="multipart/form-data">
             <div class="form-group">
