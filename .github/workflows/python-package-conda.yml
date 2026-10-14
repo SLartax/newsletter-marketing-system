@@ -1,8 +1,8 @@
 name: Python Package (pip)
 
+# DISABLED: no automatic CI runs, as requested on 2026-10-14.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
