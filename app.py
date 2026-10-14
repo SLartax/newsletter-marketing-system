@@ -17,6 +17,7 @@ from werkzeug.utils import secure_filename
 
 from flask import (
     Flask,
+    abort,
     flash,
     redirect,
     render_template,
@@ -29,6 +30,8 @@ from flask import (
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max upload
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_PATH = os.path.join(BASE_DIR, "newsletter.db")
@@ -51,6 +54,33 @@ SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", SMTP_USERNAME)
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Newsletter System")
+
+# ===== SECURITY: CSRF protection for login and outgoing email actions =====
+@app.context_processor
+def inject_csrf_token():
+    token = session.get("_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return {"csrf_token": token}
+
+
+@app.before_request
+def verify_csrf_on_writes():
+    if request.method == "POST" and request.endpoint in {"login", "new_campaign"}:
+        expected = session.get("_csrf_token", "")
+        received = request.form.get("_csrf_token", "")
+        if not expected or not received or not secrets.compare_digest(expected, received):
+            abort(400, description="Invalid CSRF token")
+
+
+@app.after_request
+def security_response_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
 
 # ===== FUNZIONI HELPER =====
 def utc_now_iso():
