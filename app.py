@@ -55,6 +55,14 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", SMTP_USERNAME)
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Newsletter System")
 
+# ===== MAINTENANCE LOCK: disabled by user request 2026-10-14 =====
+# The source and database remain intact; public access requires explicit reactivation.
+@app.before_request
+def pause_newsletter_application():
+    if os.environ.get("ARTAX_NEWSLETTER_ENABLED", "0") != "1":
+        return "Artax Newsletter temporaneamente disattivata.", 503
+
+
 # ===== SECURITY: CSRF protection for login and outgoing email actions =====
 @app.context_processor
 def inject_csrf_token():
