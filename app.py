@@ -39,7 +39,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Credenziali admin (da variabili d'ambiente)
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "password123")
+# No fallback password: administrative access remains disabled until configured.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+if not ADMIN_PASSWORD:
+    app.logger.warning("ADMIN_PASSWORD not configured: login disabled (fail closed)")
 
 # Configurazione SMTP
 SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
@@ -169,7 +172,7 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "")
         password = request.form.get("password", "")
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        if ADMIN_PASSWORD and secrets.compare_digest(username, ADMIN_USERNAME) and secrets.compare_digest(password, ADMIN_PASSWORD):
             session["logged_in"] = True
             session["username"] = username
             flash("Login effettuato con successo!", "success")
